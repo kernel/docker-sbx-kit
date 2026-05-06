@@ -33,30 +33,10 @@ export ANTHROPIC_API_KEY=...
 Start Claude with this mixin:
 
 ```bash
-sbx run --name kernel-demo --kit . claude
-```
-
-`--kit` only applies when `sbx` creates a sandbox. If you reuse a sandbox name,
-run it without `--kit`, remove it first with `sbx rm kernel-demo`, or choose a
-new name.
-
-When Claude Code opens, try a prompt like:
-
-```text
-Using the Kernel CLI, which is already authenticated, create a browser and navigate to news.ycombinator.com. Tell me the top five articles.
-```
-
-To launch the interactive UI with that prompt already submitted, pass the
-prompt as a Claude Code positional argument after `--`:
-
-```bash
 sbx run --name kernel-demo --kit . claude -- "Using the Kernel CLI, which is already authenticated, create a browser and navigate to news.ycombinator.com. Tell me the top five articles."
 ```
 
-Use Claude Code's `-p` flag only when you want noninteractive print mode that
-runs the prompt and exits.
-
-The agent should be able to call `kernel` and use the installed Kernel skills inside the sandbox without seeing the real `KERNEL_API_KEY`.
+The agent should be able to call `kernel` and efficiently complete the task using the installed Kernel skills inside the sandbox without seeing the real `KERNEL_API_KEY`.
 
 ## What The Mixin Does
 
@@ -68,7 +48,7 @@ commands:
     - command: "npm install -g @onkernel/cli"
 ```
 
-It also installs all skills from [`kernel/skills`](https://github.com/kernel/skills) for Claude Code:
+It also installs all agent skills from [`kernel/skills`](https://github.com/kernel/skills):
 
 ```yaml
 commands:
@@ -116,8 +96,3 @@ network:
       valueFormat: "Bearer %s"
 ```
 
-## Repo Contents
-
-- `spec.yaml` defines the `kernel` mixin.
-- `scripts/install-sbx-linux.sh` installs `sbx` using Docker's apt flow, with a Debian fallback.
-- `scripts/smoke.sh` validates the kit and can create a Claude sandbox for a Kernel smoke test.
