@@ -1,0 +1,40 @@
+schemaVersion: "1"
+kind: mixin
+name: kernel
+displayName: Kernel
+description: Add Kernel tooling and proxy-managed Kernel API auth to Docker sandboxes
+
+network:
+  allowedDomains:
+    - "registry.npmjs.org:443"
+    - "github.com:443"
+    - "api.github.com:443"
+    - "raw.githubusercontent.com:443"
+    - "release-assets.githubusercontent.com:443"
+    - "add-skill.vercel.sh:443"
+    - "skills.sh:443"
+    - "api.onkernel.com:443"
+  serviceDomains:
+    api.onkernel.com: kernel
+  serviceAuth:
+    kernel:
+      headerName: Authorization
+      valueFormat: "Bearer %s"
+
+credentials:
+  sources:
+    kernel:
+      env:
+        - KERNEL_API_KEY
+
+environment:
+  proxyManaged:
+    - KERNEL_API_KEY
+
+commands:
+  install:
+    - command: "npm install -g @onkernel/cli"
+      description: Install Kernel tooling
+    - command: "DISABLE_TELEMETRY=1 npm_config_update_notifier=false npx -y skills add kernel/skills --skill '*' --agent claude-code --global --copy --yes && rm -rf \"$HOME/.agents/skills\" && mkdir -p \"$HOME/.agents\" && cp -a \"$HOME/.claude/skills\" \"$HOME/.agents/skills\""
+      user: "1000"
+      description: Install Kernel skills for Claude Code
