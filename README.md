@@ -33,7 +33,7 @@ export ANTHROPIC_API_KEY=...
 Start Claude with this mixin:
 
 ```bash
-sbx run --name kernel-demo --kit . claude -- "Using the Kernel CLI, which is already authenticated, create a browser and navigate to news.ycombinator.com. Tell me the top five articles."
+sbx run --name kernel-demo --kit . claude -- "Using the Kernel CLI, create a browser and navigate to news.ycombinator.com. Tell me the top five articles."
 ```
 
 The agent should be able to call `kernel` and efficiently complete the task using the installed Kernel skills inside the sandbox without seeing the real `KERNEL_API_KEY`.
