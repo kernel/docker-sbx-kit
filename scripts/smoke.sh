@@ -11,15 +11,14 @@ usage() {
   cat <<'EOF'
 Usage: scripts/smoke.sh [--create] [--sandbox NAME]
 
-Validates the Kernel sbx mixin. By default, this checks local
-prerequisites and validates the kit without creating a sandbox.
+Validates the Kernel sbx mixin. By default, this checks the local kit without
+creating a sandbox.
 
 Options:
   --create        Create a fresh Claude sandbox with this kit, then run checks.
   --sandbox NAME  Run checks against an existing sandbox.
 
 Environment:
-  KERNEL_API_KEY  Host-side Kernel API key read by the sbx proxy.
   KEEP_SANDBOX    Set to 1 to keep a sandbox created by --create.
   KIT_DIR         Kit directory to validate. Defaults to the repo root.
   WORKSPACE_DIR   Workspace mounted into a created sandbox. Defaults to KIT_DIR.
@@ -59,24 +58,30 @@ require_cmd() {
   fi
 }
 
+cleanup() {
+  if [[ "$CREATED_SANDBOX" -eq 1 && "${KEEP_SANDBOX:-0}" != "1" ]]; then
+    echo "Removing smoke sandbox $SANDBOX_NAME"
+    sbx rm --force "$SANDBOX_NAME" >/dev/null
+  fi
+}
+trap cleanup EXIT
+
 require_cmd sbx
-require_cmd docker
-
-if [[ ! -e /dev/kvm ]]; then
-  echo "Missing /dev/kvm. Docker Sandboxes require KVM on Linux." >&2
-  exit 1
-fi
-
-if [[ -z "${KERNEL_API_KEY:-}" ]]; then
-  echo "KERNEL_API_KEY must be set on the host for the sbx proxy credential source." >&2
-  exit 1
-fi
 
 echo "Validating kit at $KIT_DIR"
 sbx kit validate "$KIT_DIR"
 sbx kit inspect "$KIT_DIR"
 
 if [[ "$CREATE" -eq 1 ]]; then
+  if [[ ! -e /dev/kvm ]]; then
+    echo "Missing /dev/kvm. Docker Sandboxes require KVM on Linux." >&2
+    exit 1
+  fi
+  if ! sbx secret ls | awk '$2 == "service" && $3 == "kernel" { found = 1 } END { exit !found }'; then
+    echo "Store a Kernel API key with 'sbx secret set kernel' before running the full smoke test." >&2
+    exit 1
+  fi
+
   if [[ -z "$SANDBOX_NAME" ]]; then
     SANDBOX_NAME="kernel-smoke-$(date +%Y%m%d%H%M%S)"
   fi
@@ -91,11 +96,8 @@ if [[ -z "$SANDBOX_NAME" ]]; then
 
 Kit validation passed.
 
-To run the full sandbox smoke test:
-  KERNEL_API_KEY=... scripts/smoke.sh --create
-
-Or validate manually:
-  KERNEL_API_KEY=... sbx run --name kernel-demo --kit "$KIT_DIR" claude
+After storing a Kernel API key with 'sbx secret set kernel', run:
+  scripts/smoke.sh --create
 EOF
   exit 0
 fi
@@ -103,16 +105,14 @@ fi
 echo "Checking Kernel tooling inside sandbox $SANDBOX_NAME"
 sbx exec "$SANDBOX_NAME" sh -lc 'command -v kernel && kernel --version'
 
-echo "Checking Kernel skills inside sandbox $SANDBOX_NAME"
-sbx exec "$SANDBOX_NAME" sh -lc 'test -d "$HOME/.claude/skills/kernel-cli" && test -d "$HOME/.agents/skills/kernel-cli"'
+echo "Checking the bundled quick-reference guide"
+sbx exec "$SANDBOX_NAME" test -f /home/agent/.kernel/quickstart.md
+
+echo "Checking the proxy-managed credential sentinel"
+sbx exec "$SANDBOX_NAME" sh -lc 'test "$KERNEL_API_KEY" = proxy-managed'
 
 echo "Checking Kernel API access through the proxy"
-sbx exec "$SANDBOX_NAME" sh -lc 'kernel browsers list >/dev/null'
+sbx exec "$SANDBOX_NAME" kernel browsers list >/dev/null
 
-echo "Recent Kernel policy matches, if present:"
-sbx policy log | grep -E 'api\.onkernel\.com|kernel' || true
-
-if [[ "$CREATED_SANDBOX" -eq 1 && "${KEEP_SANDBOX:-0}" != "1" ]]; then
-  echo "Removing smoke sandbox $SANDBOX_NAME"
-  sbx rm --force "$SANDBOX_NAME"
-fi
+echo "Recent Kernel network policy matches:"
+sbx policy log "$SANDBOX_NAME" --type network --limit 20 | grep -E 'api\.onkernel\.com|kernel' || true
