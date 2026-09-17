@@ -1,0 +1,31 @@
+name: Validate kit
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Docker Sandboxes CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download \
+            --repo docker/sbx-releases \
+            --pattern DockerSandboxes-linux-amd64.tar.gz \
+            --dir /tmp
+          tar -xzf /tmp/DockerSandboxes-linux-amd64.tar.gz -C /tmp
+          sudo env PREFIX="$HOME/.local/docker-sbx" /tmp/docker-sbx/install.sh
+          echo "$HOME/.local/docker-sbx/bin" >> "$GITHUB_PATH"
+
+      - name: Validate kit
+        run: scripts/smoke.sh

@@ -1,40 +1,47 @@
-schemaVersion: "1"
+schemaVersion: "2"
 kind: mixin
 name: kernel
-displayName: Kernel
-description: Add Kernel tooling and proxy-managed Kernel API auth to Docker sandboxes
+displayName: Kernel Browser
+description: Cloud-hosted Chromium for AI agents with stealth, managed auth, and live session replay
+sourceURL: https://github.com/kernel/docker-sbx-kit
+licenses:
+  - Apache-2.0
 
-network:
-  allowedDomains:
-    - "registry.npmjs.org:443"
-    - "github.com:443"
-    - "api.github.com:443"
-    - "raw.githubusercontent.com:443"
-    - "release-assets.githubusercontent.com:443"
-    - "add-skill.vercel.sh:443"
-    - "skills.sh:443"
-    - "api.onkernel.com:443"
-  serviceDomains:
-    api.onkernel.com: kernel
-  serviceAuth:
-    kernel:
-      headerName: Authorization
-      valueFormat: "Bearer %s"
+permissions:
+  network:
+    allow:
+      # Kernel REST API and regional CDP WebSocket proxy hosts.
+      - '*.onkernel.com'
+      # Package registries used when agents add a Kernel SDK.
+      - registry.npmjs.org
+      - '*.npmjs.org'
+      - pypi.org
+      - files.pythonhosted.org
+      # The Kernel CLI postinstall downloads its binary from GitHub Releases.
+      - github.com
+      - objects.githubusercontent.com
+      - release-assets.githubusercontent.com
 
 credentials:
-  sources:
-    kernel:
-      env:
-        - KERNEL_API_KEY
+  - service: kernel
+    description: Kernel API key
+    required: true
+    apiKey:
+      name: KERNEL_API_KEY
+      proxyManaged: true
+      inject:
+        - domain: api.onkernel.com
+          header: Authorization
+          format: Bearer %s
 
-environment:
-  proxyManaged:
-    - KERNEL_API_KEY
+agentInstructions:
+  content: |
+    The Kernel CLI is installed for cloud browser automation. Before using it,
+    read /home/agent/.kernel/quickstart.md for current CLI and SDK examples.
+    Delete browser sessions when work is complete.
 
-commands:
+setup:
   install:
-    - command: "npm install -g @onkernel/cli"
-      description: Install Kernel tooling
-    - command: "DISABLE_TELEMETRY=1 npm_config_update_notifier=false npx -y skills add kernel/skills --skill '*' --agent claude-code --global --copy --yes && rm -rf \"$HOME/.agents/skills\" && mkdir -p \"$HOME/.agents\" && cp -a \"$HOME/.claude/skills\" \"$HOME/.agents/skills\""
-      user: "1000"
-      description: Install Kernel skills for Claude Code
+    - command: npm install -g @onkernel/cli
+      user: "0"
+      description: Install the Kernel CLI

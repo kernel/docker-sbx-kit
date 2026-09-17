@@ -1,98 +1,63 @@
-# Kernel Docker Sandbox Mixin
+# Kernel kit for Docker Sandboxes
 
-This repo contains a [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) (`sbx`) mixin kit for [Kernel](https://www.kernel.sh). It gives an agent sandbox Kernel tooling, Kernel skills for Claude Code, and proxy-managed Kernel API authentication without putting your real `KERNEL_API_KEY` inside the sandbox.
+This mixin gives any [Docker Sandbox](https://docs.docker.com/ai/sandboxes/) agent access to [Kernel](https://www.kernel.sh/) cloud browsers. It installs the Kernel CLI, adds a quick-reference guide, permits the required network destinations, and keeps the Kernel API key outside the sandbox.
 
-## Quickstart
+Docker publishes the kit at [`docker.io/sbx/kernel-kit`](https://hub.docker.com/r/sbx/kernel-kit) from the [`docker/sbx-kits-contrib`](https://github.com/docker/sbx-kits-contrib/tree/main/kernel) repository.
 
-### 1. Install Docker Sandboxes
+## Use the published kit
 
-Install and sign in to `sbx` using the [Docker Sandboxes getting started guide](https://docs.docker.com/ai/sandboxes/get-started/).
+1. Install Docker Sandboxes and sign in by following Docker's [getting started guide](https://docs.docker.com/ai/sandboxes/get-started/).
+2. Create a Kernel API key, then store it in Docker Sandboxes' host-side secret store:
 
-### 2. Set Up Kernel
+   ```console
+   sbx secret set kernel
+   ```
 
-Create or use a Kernel account at [kernel.sh](https://www.kernel.sh), then create an API key.
+3. Launch an agent with the kit:
 
-Export the key in the host shell where you run `sbx`:
+   ```console
+   sbx run claude --kit docker.io/sbx/kernel-kit:latest
+   ```
 
-```bash
-export KERNEL_API_KEY=...
+On first use, `sbx` asks you to approve injecting the `kernel` credential into requests to `api.onkernel.com`. The sandbox receives only a `proxy-managed` sentinel; the host proxy replaces it with the real key when the request leaves the sandbox.
+
+## Develop locally
+
+Validate and inspect the kit before creating a sandbox:
+
+```console
+sbx kit validate .
+sbx kit inspect .
 ```
 
-The real key stays on the host. This kit configures the `sbx` proxy so Kernel API requests from inside the sandbox receive the right auth header.
+Run the non-destructive checks with:
 
-### 3. Set Up Claude
-
-The built-in Claude sandbox needs Anthropic credentials. Export your API key in the same host shell:
-
-```bash
-export ANTHROPIC_API_KEY=...
+```console
+scripts/smoke.sh
 ```
 
-### 4. Launch Claude With Kernel
+Run the full smoke test with a disposable Claude sandbox after storing the Kernel credential:
 
-Start Claude with this mixin:
-
-```bash
-sbx run --name kernel-demo --kit . claude -- "Using the Kernel CLI, create a browser and navigate to news.ycombinator.com. Tell me the top five articles."
+```console
+scripts/smoke.sh --create
 ```
 
-The agent should be able to call `kernel` and efficiently complete the task using the installed Kernel skills inside the sandbox without seeing the real `KERNEL_API_KEY`.
+The full test verifies the CLI, bundled quick-reference guide, proxy-managed environment variable, and an authenticated Kernel API request. Set `KEEP_SANDBOX=1` to retain the sandbox for debugging.
 
-## What The Mixin Does
+## Publish an organization-owned copy
 
-The mixin installs Kernel's CLI:
+Docker Hub publication uses an OCI artifact rather than a container image:
 
-```yaml
-commands:
-  install:
-    - command: "npm install -g @onkernel/cli"
+```console
+sbx login
+sbx kit validate .
+sbx kit push . docker.io/onkernel/kernel-kit:latest --sign
 ```
 
-It also installs all agent skills from [`kernel/skills`](https://github.com/kernel/skills):
+The Docker Verified Publisher badge is granted at the Docker Hub namespace level. Pushing a kit does not grant the badge; the `onkernel` namespace must complete Docker's [Verified Publisher application](https://hub.docker.com/publisher-program/apply) separately.
 
-```yaml
-commands:
-  install:
-    - command: "DISABLE_TELEMETRY=1 npm_config_update_notifier=false npx -y skills add kernel/skills --skill '*' --agent claude-code --global --copy --yes && rm -rf \"$HOME/.agents/skills\" && mkdir -p \"$HOME/.agents\" && cp -a \"$HOME/.claude/skills\" \"$HOME/.agents/skills\""
-      user: "1000"
-```
+## Kit contents
 
-Those flags make the `skills` install noninteractive: select all skills, target Claude Code, install globally into the sandbox agent user's home, copy files instead of symlinking, and accept prompts. After the CLI install, the command copies the resulting `~/.claude/skills` tree to `~/.agents/skills` so agents that read the generic skills location can use the same Kernel skills.
-
-It allows the package registry, GitHub, skills metadata, and Kernel API:
-
-```yaml
-network:
-  allowedDomains:
-    - "registry.npmjs.org:443"
-    - "github.com:443"
-    - "api.github.com:443"
-    - "raw.githubusercontent.com:443"
-    - "release-assets.githubusercontent.com:443"
-    - "add-skill.vercel.sh:443"
-    - "skills.sh:443"
-    - "api.onkernel.com:443"
-```
-
-It maps `api.onkernel.com` to a host-side credential source named `kernel`:
-
-```yaml
-credentials:
-  sources:
-    kernel:
-      env:
-        - KERNEL_API_KEY
-```
-
-The proxy injects the API key as an authorization header for Kernel API requests:
-
-```yaml
-network:
-  serviceDomains:
-    api.onkernel.com: kernel
-  serviceAuth:
-    kernel:
-      headerName: Authorization
-      valueFormat: "Bearer %s"
-```
-
+- `spec.yaml` — schema v2 mixin definition
+- `files/home/.kernel/quickstart.md` — examples installed into the agent's home directory
+- `scripts/smoke.sh` — local validation and optional end-to-end test
