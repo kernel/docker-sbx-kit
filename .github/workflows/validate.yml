@@ -24,7 +24,7 @@ jobs:
             --pattern DockerSandboxes-linux-amd64.tar.gz \
             --dir /tmp
           tar -xzf /tmp/DockerSandboxes-linux-amd64.tar.gz -C /tmp
-          PREFIX="$HOME/.local/docker-sbx" /tmp/docker-sbx/install.sh
+          sudo env PREFIX="$HOME/.local/docker-sbx" /tmp/docker-sbx/install.sh
           echo "$HOME/.local/docker-sbx/bin" >> "$GITHUB_PATH"
 
       - name: Validate kit
