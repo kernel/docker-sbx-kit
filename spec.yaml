@@ -10,8 +10,10 @@ licenses:
 permissions:
   network:
     allow:
-      # Kernel REST API and regional CDP WebSocket proxy hosts.
-      - '*.onkernel.com'
+      # Kernel REST API and regional proxy-based CDP endpoints.
+      - '**.onkernel.com'
+      # Direct CDP endpoints returned by Kernel in some metros.
+      - '*.kernel.sh'
       # Package registries used when agents add a Kernel SDK.
       - registry.npmjs.org
       - '*.npmjs.org'
@@ -21,6 +23,10 @@ permissions:
       - github.com
       - objects.githubusercontent.com
       - release-assets.githubusercontent.com
+
+environment:
+  variables:
+    KERNEL_NO_UPDATE_CHECK: "1"
 
 credentials:
   - service: kernel
